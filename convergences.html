@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Convergences — an ophthalmology sorting puzzle</title>
+<style>
+  :root{
+    --bg:#1a1a1e;
+    --surface:#232327;
+    --surface2:#2d2d31;
+    --surface3:#3a3a41;
+    --text:#f0f0f0;
+    --text2:#b0b0b0;
+    --text3:#7d7d85;
+    --border:rgba(255,255,255,.10);
+    --border2:rgba(255,255,255,.18);
+
+    --blue:#4a9eff;   --blue-l:#1e3a52;
+    --teal:#4db8a8;   --teal-l:#1a3a35;
+    --amber:#ffb84d;  --amber-l:#3a2a10;
+    --green:#66d966;  --green-l:#1a3a1a;
+    --purple:#b39ddb; --purple-l:#2a1a3a;
+    --red:#ff6b6b;    --red-l:#3a1a1a;
+
+    --radius:10px;
+    --radius-lg:16px;
+    --radius-sm:6px;
+    --font:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    --font-mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;}
+  html{height:100%; color-scheme:dark; -webkit-text-size-adjust:100%; text-size-adjust:100%;}
+  body{
+    margin:0;
+    height:100vh; height:100dvh; height:calc(var(--vh100, 1vh) * 100);
+    font-family:var(--font);
+    background:
+      radial-gradient(ellipse 900px 500px at 50% -10%, rgba(74,158,255,.08), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    -webkit-tap-highlight-color:transparent;
+    overflow:hidden;
+    overscroll-behavior:none;
+  }
+  #app{
+    max-width:560px;
+    margin:0 auto;
+    height:100vh; height:100dvh; height:calc(var(--vh100, 1vh) * 100);
+    padding:10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    display:flex;
+    flex-direction:column;
+    overflow-y:auto;
+    overscroll-behavior:contain;
+  }
+
+  /* ---------- header ---------- */
+  header{ flex:0 0 auto; text-align:center; margin-bottom:4px; }
+  .brand{ display:flex; align-items:baseline; justify-content:center; gap:2px; }
+  .brand h1{ font-size:1.15rem; letter-spacing:.12em; font-weight:800; margin:0; text-transform:uppercase; }
+  .brand h1 .dx{ color:var(--blue); }
+  .tagline{ display:none; }
+  .puzzle-meta{ margin-top:4px; display:flex; align-items:center; justify-content:center; gap:6px; flex-wrap:wrap; }
+  .puzzle-num{ font-family:var(--font-mono); font-size:.66rem; color:var(--text3); letter-spacing:.05em; }
+  .puzzle-title{ font-size:.92rem; font-weight:700; }
+  .mode-pill{ font-size:.58rem; text-transform:uppercase; letter-spacing:.07em; padding:1px 7px; border-radius:999px; border:1px solid var(--border2); color:var(--text2); }
+
+  /* ---------- top controls row ---------- */
+  .toprow{ flex:0 0 auto; display:flex; justify-content:center; gap:8px; margin:6px 0 4px; }
+  .iconbtn{ background:var(--surface2); border:1px solid var(--border); color:var(--text2); font-family:var(--font); font-size:.68rem; font-weight:600; letter-spacing:.02em; padding:5px 11px; border-radius:999px; cursor:pointer; }
+  .iconbtn:active{ background:var(--surface3); }
+
+  /* ---------- legend ---------- */
+  #legend{ flex:0 0 auto; display:flex; align-items:center; gap:5px; flex-wrap:wrap; margin:3px 0; }
+  #legend.hidden{ display:none; }
+  .legend-pill{ font-size:.6rem; font-weight:800; letter-spacing:.03em; padding:2px 7px; border-radius:999px; background:var(--accent-bg); color:var(--accent); }
+  .legend-caption{ font-size:.64rem; color:var(--text3); }
+
+  /* ---------- solved bars ---------- */
+  #solvedGroups{ flex:0 0 auto; display:flex; flex-direction:column; gap:5px; margin:5px 0; }
+  #solvedGroups:empty{ margin:0; }
+  .solved-bar{ border-radius:var(--radius-sm); padding:7px 10px; border-left:5px solid var(--accent); background:var(--accent-bg); animation:dropIn .35s ease; }
+  @keyframes dropIn{ from{ opacity:0; transform:translateY(-8px) scale(.98); } to{ opacity:1; transform:translateY(0) scale(1); } }
+  .solved-bar .sb-label{ font-size:.68rem; text-transform:uppercase; letter-spacing:.06em; font-weight:800; color:var(--accent); margin-bottom:4px; }
+  .solved-bar .sb-items{ display:flex; flex-direction:column; gap:2px; }
+  .solved-bar .sb-row{ font-size:.78rem; font-weight:600; line-height:1.3; display:flex; gap:6px; align-items:baseline; }
+  .solved-bar .sb-row .sb-tag{ flex:0 0 auto; font-size:.56rem; font-weight:800; letter-spacing:.05em; padding:1px 5px; border-radius:4px; background:var(--accent-bg); color:var(--accent); }
+  .solved-bar .sb-items.plain{ font-size:.82rem; font-weight:600; line-height:1.3; }
+  .solved-bar .sb-pearl{ font-size:.72rem; color:var(--text2); margin-top:4px; font-style:italic; line-height:1.3; }
+
+  /* ---------- grid ---------- */
+  #grid{
+    flex:1 1 0;
+    min-height:0;
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    grid-auto-rows:minmax(40px, 1fr);
+    gap:6px;
+    margin:4px 0;
+  }
+  .tile{
+    min-height:40px;
+    min-width:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+    text-align:center; padding:4px;
+    border-radius:var(--radius-sm);
+    border:1px solid var(--border2);
+    background:var(--surface2);
+    color:var(--text);
+    font-family:var(--font);
+    font-weight:700;
+    line-height:1.12;
+    cursor:pointer;
+    user-select:none;
+    overflow:hidden;
+    transition:transform .1s ease, background .12s ease, border-color .12s ease;
+  }
+  .tile:active{ transform:scale(.96); }
+  .tile-badge{ font-size:.52rem; font-weight:800; letter-spacing:.05em; padding:1px 6px; border-radius:999px; background:var(--accent-bg); color:var(--accent); flex:0 0 auto; }
+  .tile.selected .tile-badge{ background:rgba(0,0,0,.18); color:inherit; }
+  .tile .tile-text{ min-width:0; max-width:100%; overflow-wrap:break-word; word-break:break-word; hyphens:auto; }
+  .tile.len-md .tile-text{ font-size:.74rem; }
+  .tile.len-sm .tile-text{ font-size:.67rem; }
+  .tile.len-xs .tile-text{ font-size:.6rem; }
+  .tile.len-2xs .tile-text{ font-size:.55rem; }
+  .tile:not(.len-md):not(.len-sm):not(.len-xs):not(.len-2xs) .tile-text{ font-size:.82rem; }
+  .tile.selected{ background:var(--text); color:var(--bg); border-color:var(--text); }
+  .tile.shake{ animation:shake .4s ease; }
+  @keyframes shake{ 10%,90%{ transform:translateX(-1px); } 20%,80%{ transform:translateX(2px); } 30%,50%,70%{ transform:translateX(-4px); } 40%,60%{ transform:translateX(4px); } }
+
+  /* ---------- toast ---------- */
+  #toast{ flex:0 0 auto; text-align:center; min-height:16px; font-size:.76rem; font-weight:700; color:var(--amber); margin:1px 0; }
+
+  /* ---------- mistakes + controls ---------- */
+  #mistakeRow{ flex:0 0 auto; display:flex; align-items:center; justify-content:center; gap:8px; margin:3px 0 6px; font-size:.68rem; color:var(--text3); }
+  .dots{ display:flex; gap:5px; }
+  .dot-pip{ width:9px; height:9px; border-radius:50%; background:var(--surface3); border:1px solid var(--border2); }
+  .dot-pip.used{ background:var(--red); border-color:var(--red); }
+
+  #controls{ flex:0 0 auto; display:flex; gap:8px; justify-content:center; padding:6px 0 2px; }
+  #controls.stuck{ position:sticky; bottom:0; background:var(--bg); }
+  .btn{ font-family:var(--font); font-weight:700; font-size:.8rem; padding:9px 15px; border-radius:999px; border:1px solid var(--border2); background:transparent; color:var(--text); cursor:pointer; letter-spacing:.01em; }
+  .btn:active{ background:var(--surface2); }
+  .btn:disabled{ opacity:.35; cursor:not-allowed; }
+  .btn-primary{ background:var(--text); color:var(--bg); border-color:var(--text); }
+  .btn-primary:disabled{ background:var(--surface3); color:var(--text3); border-color:var(--surface3); opacity:1; }
+
+  footer{ display:none; }
+
+  /* ---------- overlay / modals ---------- */
+  #overlay{ position:fixed; inset:0; background:rgba(10,10,12,.72); display:flex; align-items:flex-end; justify-content:center; z-index:50; }
+  #overlay.hidden{ display:none; }
+  .sheet{ width:100%; max-width:560px; max-height:82vh; overflow-y:auto; background:var(--surface); border:1px solid var(--border2); border-radius:18px 18px 0 0; padding:20px 18px 26px; animation:sheetUp .22s ease; }
+  @keyframes sheetUp{ from{ transform:translateY(16px); opacity:0;} to{ transform:translateY(0); opacity:1;} }
+  .sheet h2{ margin:0 0 4px; font-size:1.15rem; }
+  .sheet .sheet-sub{ color:var(--text3); font-size:.8rem; margin-bottom:14px; }
+  .sheet-close{ display:block; margin:16px auto 0; background:var(--surface2); border:1px solid var(--border); color:var(--text2); padding:9px 20px; border-radius:999px; font-family:var(--font); font-weight:600; font-size:.8rem; }
+
+  .archive-item{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 4px; border-bottom:1px solid var(--border); cursor:pointer; background:none; border-left:none; border-right:none; border-top:none; width:100%; text-align:left; color:var(--text); font-family:var(--font); }
+  .archive-item:last-child{ border-bottom:none; }
+  .archive-item .ai-title{ font-weight:700; font-size:.9rem; }
+  .archive-item .ai-sub{ font-size:.68rem; color:var(--text3); margin-top:2px; }
+  .archive-item .ai-badge{ font-size:.6rem; text-transform:uppercase; letter-spacing:.06em; color:var(--text3); border:1px solid var(--border2); border-radius:999px; padding:2px 8px; flex:0 0 auto; }
+  .archive-item.today .ai-badge{ color:var(--amber); border-color:var(--amber); }
+  .archive-item.solved{ border-left:3px solid var(--green); padding-left:11px; }
+
+  .help-rule{ margin:14px 0; border:none; border-top:1px solid var(--border); }
+  .help-step{ display:flex; gap:10px; margin-bottom:10px; font-size:.84rem; line-height:1.4; color:var(--text2); }
+  .help-step b{ color:var(--text); }
+  .swatch-row{ display:flex; gap:10px; margin:10px 0; flex-wrap:wrap; }
+  .swatch{ display:flex; align-items:center; gap:6px; font-size:.72rem; color:var(--text2); }
+  .swatch .dot{ width:10px; height:10px; border-radius:50%; }
+
+  .result-headline{ font-size:1.3rem; font-weight:800; margin-bottom:2px; }
+  .result-sub{ color:var(--text2); font-size:.85rem; margin-bottom:10px; }
+  .result-groups{ display:flex; flex-direction:column; gap:8px; margin:12px 0 4px; }
+  .share-grid{ font-size:1.3rem; letter-spacing:.14em; margin:12px 0 4px; line-height:1.6; }
+  .result-actions{ display:flex; gap:8px; margin-top:14px; }
+  .result-actions .btn{ flex:1; }
+
+  .tag-blue{ --accent:var(--blue); --accent-bg:var(--blue-l); }
+  .tag-teal{ --accent:var(--teal); --accent-bg:var(--teal-l); }
+  .tag-amber{ --accent:var(--amber); --accent-bg:var(--amber-l); }
+  .tag-green{ --accent:var(--green); --accent-bg:var(--green-l); }
+  .tag-purple{ --accent:var(--purple); --accent-bg:var(--purple-l); }
+
+  @media (min-width:480px){
+    .tile .tile-text{ font-size:.88rem; }
+    .tile.len-md .tile-text{ font-size:.8rem; }
+    .tile.len-sm .tile-text{ font-size:.72rem; }
+    .tile.len-xs .tile-text{ font-size:.65rem; }
+    .tile.len-2xs .tile-text{ font-size:.6rem; }
+    html, body{ overflow:auto; }
+    #app{ height:auto; min-height:100vh; min-height:100dvh; overflow-y:visible; padding:18px 14px 30px; }
+    #grid{ flex:0 0 auto; grid-auto-rows:unset; gap:8px; }
+    .tile{ aspect-ratio:1/0.85; min-height:auto; }
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    .tile, .solved-bar, .sheet{ animation:none !important; transition:none !important; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="brand"><h1>Convergences<span class="dx">.</span></h1></div>
+    <p class="tagline">an ophthalmology sorting puzzle</p>
+    <div class="puzzle-meta">
+      <span class="puzzle-num" id="puzzleNum">No. 001</span>
+      <span class="puzzle-title" id="puzzleTitle">—</span>
+      <span class="mode-pill" id="modePill">—</span>
+    </div>
+  </header>
+
+  <div class="toprow">
+    <button class="iconbtn" id="btnArchive">Puzzle archive</button>
+    <button class="iconbtn" id="btnHelp">How to play</button>
+  </div>
+
+  <div id="legend"></div>
+  <div id="solvedGroups"></div>
+  <div id="grid"></div>
+  <div id="toast"></div>
+
+  <div id="mistakeRow">
+    <span>Mistakes</span>
+    <span class="dots" id="dots"></span>
+  </div>
+
+  <div id="controls">
+    <button class="btn" id="btnShuffle">Shuffle</button>
+    <button class="btn" id="btnDeselect">Deselect</button>
+    <button class="btn btn-primary" id="btnSubmit" disabled>Submit</button>
+    <button class="btn btn-primary" id="btnPlayAgain" style="display:none;">Play again</button>
+  </div>
+
+  <footer></footer>
+
+</div>
+
+<div id="overlay" class="hidden"></div>
+
+<script>
+/* ======================================================================
+   PUZZLE DATA
+   ----------------------------------------------------------------------
+   Two puzzle "modes":
+
+   - "categorized": all 16 clues are tagged with one of four fixed slots —
+     RF (Risk Factor), DX (Diagnostic Test), SX (Symptom/Exam Finding),
+     TX (Treatment) — shown right on each tile. The puzzle covers FOUR
+     DISEASES, one per group, each contributing exactly one RF + one DX
+     + one SX + one TX. The challenge is finding which 4 tagged clues
+     (one of each tag) all describe the SAME disease — not lumping all
+     four risk factors together. Disease names are hidden until solved.
+
+   - "undifferentiated": four independent "Causes of X" (or similar)
+     themes, hidden until solved, NYT-Connections-style. At least one
+     item plausibly overlaps with another group's theme (the red
+     herring) — there is still only one correct grouping.
+
+   To add a "categorized" puzzle: give each group a `disease` name, a
+   `pearl`, and exactly 4 `items`, each `{ slot: 'RF'|'DX'|'SX'|'TX', text }`
+   — one of each slot.
+
+   To add an "undifferentiated" puzzle: give each group a `theme`, a
+   `pearl`, and exactly 4 plain-string `items`.
+   ====================================================================== */
+
+const SLOT_COLOR = { RF: 'blue', DX: 'teal', SX: 'amber', TX: 'green' };
+const SLOT_LABEL_SHORT = { RF: 'Risk Factor', DX: 'Diagnostic Test', SX: 'Exam Finding', TX: 'Treatment' };
+const SLOT_LABEL_FULL  = { RF: 'Risk Factor', DX: 'Diagnostic Test', SX: 'Symptom / Exam Finding', TX: 'Treatment' };
+const GROUP_ACCENT = ['amber', 'green', 'blue', 'purple'];
+const SHARE_EMOJI = { amber: '🟨', green: '🟩', blue: '🟦', purple: '🟪' };
+
+const PUZZLES = [
+  {
+    id: "optic-neuropathy-dx", title: "Optic Neuropathies", mode: "categorized",
+    groups: [
+      { disease: "Arteritic AION",
+        items: [
+          { slot: "RF", text: "Age ≥ 50" },
+          { slot: "DX", text: "Temporal artery biopsy" },
+          { slot: "SX", text: "Jaw claudication" },
+          { slot: "TX", text: "High-dose IV corticosteroids" },
+        ],
+        pearl: "Arteritic AION from GCA is a same-day emergency — steroids start before the biopsy, not after." },
+      { disease: "Non-Arteritic AION",
+        items: [
+          { slot: "RF", text: "Small, crowded 'disc at risk'" },
+          { slot: "DX", text: "Clinical (diagnosis of exclusion)" },
+          { slot: "SX", text: "Altitudinal visual field defect" },
+          { slot: "TX", text: "None" },
+        ],
+        pearl: "NAION shares a swollen disc with arteritic AION — always rule out GCA first in anyone over 50." },
+      { disease: "Optic Neuritis",
+        items: [
+          { slot: "RF", text: "Multiple sclerosis" },
+          { slot: "DX", text: "MRI brain and orbits with contrast" },
+          { slot: "SX", text: "Pain with eye movement" },
+          { slot: "TX", text: "IV methylprednisolone" },
+        ],
+        pearl: "MRI lesion burden in optic neuritis is the single best predictor of future MS conversion." },
+      { disease: "Compressive Optic Neuropathy",
+        items: [
+          { slot: "RF", text: "Pituitary adenoma" },
+          { slot: "DX", text: "MRI of the sella turcica" },
+          { slot: "SX", text: "Bitemporal hemianopia" },
+          { slot: "TX", text: "Transsphenoidal surgery" },
+        ],
+        pearl: "Compressive lesions progress slowly and painlessly — chiasmal crossing fibers are why the defect is bitemporal, not a central scotoma." }
+    ]
+  },
+  {
+    id: "efferent-mixer", title: "Efferent Mixer", mode: "undifferentiated",
+    groups: [
+      { theme: "Causes of ptosis", items: ["Myasthenia gravis", "Levator dehiscence", "Oculomotor (CN III) palsy", "Horner syndrome"],
+        pearl: "Ptosis can be neuromuscular, mechanical/involutional, neurogenic, or congenital. Levator excursion (function), pupil exam, alignment, and ductions are helpful in differentiating." },
+      { theme: "Causes of anisocoria", items: ["Chronic angle closure glaucoma", "Adie tonic pupil", "Ocular ischemic syndrome", "Glycopyrrolate wipes"],
+        pearl: "Evaluation of anisocoria involves looking for ptosis, pupil reaction to light and dark, ductions, and performing a slit lamp exam." },
+      { theme: "Causes of nystagmus", items: ["Albinism", "Vestibular neuritis", "Internuclear ophthalmoplegia", "Wernicke encephalopathy"],
+        pearl: "Nystagmus localizes broadly. Childhood, gaze-evoked, peripheral vestibular, central vestibular, acquired pendular, and dissociated nystagmus with internuclear ophthalmoplegia are the main categories of nystagmus." },
+      { theme: "Causes of binocular diplopia", items: ["Abducens (CN III) palsy", "Trochlear (CN IV) palsy", "Anisometropia", "Thyroid eye disease"],
+        pearl: "Binocular diplopia (double vision present only with both eyes open) can be due to neurological disease, asymmetric focus, or myopathies." }
+    ]
+  },
+  {
+    id: "retinal-vascular-dx", title: "Retinal Vascular Disease", mode: "categorized",
+    groups: [
+      { disease: "Proliferative Diabetic Retinopathy",
+        items: [
+          { slot: "RF", text: "High HbA1c" },
+          { slot: "DX", text: "Fluorescein angiography" },
+          { slot: "SX", text: "Optic disc neovascularization" },
+          { slot: "TX", text: "Panretinal photocoagulation" },
+        ],
+        pearl: "Neovascularization is a signal of retinal ischemia (\"sick\" retina). Dead retina doesn't release VEGF." },
+      { disease: "Proliferative Sickle Cell Retinopathy",
+        items: [
+          { slot: "RF", text: "HbSC disease" },
+          { slot: "DX", text: "Hemoglobin electrophoresis" },
+          { slot: "SX", text: "Sea fan neovascularization" },
+          { slot: "TX", text: "Scatter retinal photocoagulation" },
+        ],
+        pearl: "Non-proliferative signs include salmon-patch hemorrhages, Black \"sunburst\" lesions, refractile spots in the inner retina, and retinal artery occlusions. Proliferative sickle cell retinopathy occurs in 33% of sickle cell-hemoglobin C (HbSC) disease and 14% of sickle cell-thalassemia (SThal), but is rare in homozygous sickle cell disease and sickle cell trait." },
+      { disease: "Retinopathy of Prematurity",
+        items: [
+          { slot: "RF", text: "Premature birth" },
+          { slot: "DX", text: "Dilated fundus examination" },
+          { slot: "SX", text: "Fibrovascular vitreous proliferation" },
+          { slot: "TX", text: "Aflibercept" },
+        ],
+        pearl: "Aflibercept is FDA-approved for use in ROP. However, anti-VEGF therapy has a higher risk of later reactivation, which requires prolonged, meticulous follow-up." },
+      { disease: "Central Retinal Vein Occlusion with Macular Edema",
+        items: [
+          { slot: "RF", text: "Glaucoma" },
+          { slot: "DX", text: "Optical coherence tomography" },
+          { slot: "SX", text: "Hemorrhages and cotton-wool spots" },
+          { slot: "TX", text: "Ranibizumab" },
+        ],
+        pearl: "Glaucoma or elevated intraocular pressure and increased cup-to-disc ratio are strong risk factors specific to CRVO — displacement of the lamina cribrosa alters the vein's course, causing turbulence. Ranibizumab and aflibercept are FDA-approved for macular edema following CRVO, but ranibizumab gets the nod here for being the standard of comparison. Up to 75% of CRVO patients require periodic injections to control the macular edema ≥5 years after starting treatment." }
+    ]
+  },
+  {
+    id: "on-call", title: "Ophthalmology On Call", mode: "undifferentiated",
+    groups: [
+      { theme: "Painful red eye", items: ["Acute angle-closure glaucoma", "Corneal abrasion", "Scleritis", "Anterior uveitis"],
+        pearl: "All four hurt and turn the eye red — several can blur vision too, which is what makes them tempting to sort into the vision-loss groups instead." },
+      { theme: "Self-limited red eye", items: ["Episcleritis", "Subconjunctival hemorrhage", "Viral conjunctivitis", "Dry eye disease"],
+        pearl: "None of these are true emergencies, but they generate plenty of 'my eye is red' calls. Episcleritis vs. scleritis is the pair worth knowing cold — episcleritis is mild and self-limited, while scleritis (in the painful-red-eye group) is not." },
+      { theme: "Sudden painless vision loss", items: ["Central retinal artery occlusion", "Central retinal vein occlusion", "Vitreous hemorrhage", "Retinal detachment"],
+        pearl: "None of these hurt — that is exactly what makes them dangerous, since patients may delay seeking care." },
+      { theme: "Sudden painful vision loss", items: ["Optic neuritis", "Endophthalmitis", "Herpes zoster keratouveitis", "Acanthamoeba keratitis"],
+        pearl: "Pain plus vision loss should raise concern for either an inflamed optic nerve or an infected eye — both need urgent treatment to preserve vision." }
+    ]
+  },
+  {
+    id: "anterior-segment-dx", title: "Anterior Segment Infection & Inflammation", mode: "categorized",
+    groups: [
+      { disease: "Bacterial Keratitis (Pseudomonas)",
+        items: [
+          { slot: "RF", text: "Extended contact lens wear" },
+          { slot: "DX", text: "Corneal culture and sensitivity" },
+          { slot: "SX", text: "Dense stromal infiltrate with epithelial defect" },
+          { slot: "TX", text: "Fortified topical antibiotics" },
+        ],
+        pearl: "Pseudomonas is the classic culprit in contact-lens-related bacterial keratitis, and its infiltrates can liquefy stroma alarmingly fast." },
+      { disease: "Herpes Simplex Keratitis",
+        items: [
+          { slot: "RF", text: "Prior herpetic eye disease" },
+          { slot: "DX", text: "Fluorescein staining" },
+          { slot: "SX", text: "Dendritic corneal ulcer with terminal bulbs" },
+          { slot: "TX", text: "Topical or oral antiviral therapy" },
+        ],
+        pearl: "The dendrite with terminal bulbs is pathognomonic — and a reason to avoid topical steroids until the epithelium is covered." },
+      { disease: "HLA-B27-Associated Anterior Uveitis",
+        items: [
+          { slot: "RF", text: "HLA-B27 positivity" },
+          { slot: "DX", text: "HLA-B27 genetic testing" },
+          { slot: "SX", text: "Acute unilateral anterior chamber cell and flare" },
+          { slot: "TX", text: "Topical corticosteroids with cycloplegia" },
+        ],
+        pearl: "HLA-B27 uveitis is classically acute, unilateral, and recurrent — alternating eyes between episodes." },
+      { disease: "Endophthalmitis",
+        items: [
+          { slot: "RF", text: "Recent intraocular surgery" },
+          { slot: "DX", text: "Vitreous tap and culture" },
+          { slot: "SX", text: "Hypopyon with severe pain" },
+          { slot: "TX", text: "Intravitreal antibiotic injection" },
+        ],
+        pearl: "Post-surgical endophthalmitis is a same-day emergency — vitreous culture and intravitreal antibiotics happen in one visit." }
+    ]
+  },
+  {
+    id: "disc-appearances", title: "Optic Disc Appearances", mode: "undifferentiated",
+    groups: [
+      { theme: "Causes of optic atrophy (pallor)", items: ["Compressive optic neuropathy", "Toxic/nutritional optic neuropathy", "Leber hereditary optic neuropathy", "Long-standing glaucoma"],
+        pearl: "Glaucomatous atrophy is unique here for pairing pallor with true structural cupping, not just pallor of an otherwise intact disc." },
+      { theme: "Causes of true optic disc edema", items: ["Papilledema", "Anterior ischemic optic neuropathy", "Optic neuritis (papillitis)", "Central retinal vein occlusion"],
+        pearl: "True disc edema means real axoplasmic stasis — from raised ICP, ischemia, inflammation, or venous congestion." },
+      { theme: "Congenital optic disc anomalies", items: ["Morning glory disc anomaly", "Optic disc coloboma", "Optic disc pit", "Peripapillary staphyloma"],
+        pearl: "These are structural malformations present from birth, not acquired disease — several carry a real risk of serous macular detachment." },
+      { theme: "Pseudopapilledema", items: ["Optic disc drusen", "Hyperopic crowded disc", "Myelinated retinal nerve fibers", "Tilted disc syndrome"],
+        pearl: "These discs look swollen but are not — B-scan ultrasound or OCT usually settles the question and spares an unnecessary neuroimaging workup." }
+    ]
+  },
+  {
+    id: "pediatric-dx", title: "Pediatric Eye Disease Differential", mode: "categorized",
+    groups: [
+      { disease: "Retinoblastoma",
+        items: [
+          { slot: "RF", text: "RB1 gene mutation" },
+          { slot: "DX", text: "B-scan ultrasonography" },
+          { slot: "SX", text: "Leukocoria" },
+          { slot: "TX", text: "Enucleation" },
+        ],
+        pearl: "Calcification on B-scan is a key clue distinguishing retinoblastoma from its many \"pseudoretinoblastoma\" mimics, including Coats disease." },
+      { disease: "Retinopathy of Prematurity",
+        items: [
+          { slot: "RF", text: "Prematurity with low birth weight" },
+          { slot: "DX", text: "Dilated indirect ophthalmoscopy screening" },
+          { slot: "SX", text: "Vascular ridge with plus disease" },
+          { slot: "TX", text: "Intravitreal anti-VEGF injection" },
+        ],
+        pearl: "Plus disease — dilation and tortuosity of posterior vessels — is the single finding that most urgently signals a need for treatment." },
+      { disease: "Congenital Cataract",
+        items: [
+          { slot: "RF", text: "Congenital rubella syndrome" },
+          { slot: "DX", text: "Slit-lamp examination" },
+          { slot: "SX", text: "Absent red reflex" },
+          { slot: "TX", text: "Early cataract extraction" },
+        ],
+        pearl: "Timing is everything — a dense congenital cataract left more than a few weeks can cause irreversible amblyopia." },
+      { disease: "Coats Disease",
+        items: [
+          { slot: "RF", text: "Male sex" },
+          { slot: "DX", text: "Fluorescein angiography" },
+          { slot: "SX", text: "Exudative retinal detachment" },
+          { slot: "TX", text: "Laser photocoagulation of telangiectatic vessels" },
+        ],
+        pearl: "Coats disease is unilateral, affects young boys, and is a classic mimic that must be ruled out before assuming retinoblastoma." }
+    ]
+  },
+  {
+    id: "corneal-path", title: "Corneal Pathology", mode: "undifferentiated",
+    groups: [
+      { theme: "Causes of corneal neovascularization", items: ["Contact lens overwear", "Chemical burn", "Herpetic stromal keratitis", "Ocular rosacea"],
+        pearl: "Chronic hypoxia or inflammation impairs the limbal stem-cell barrier that normally keeps the cornea avascular." },
+      { theme: "Infectious causes of corneal ulcer", items: ["Pseudomonas aeruginosa", "Acanthamoeba", "Herpes simplex virus", "Fusarium"],
+        pearl: "Contact lens wearers are classically at risk for both Pseudomonas and Acanthamoeba keratitis — a ring infiltrate with radial perineuritis points toward Acanthamoeba." },
+      { theme: "Causes of corneal edema", items: ["Fuchs endothelial dystrophy", "Acute corneal hydrops", "Contact lens-induced hypoxia", "Pseudophakic bullous keratopathy"],
+        pearl: "All four fail at the same final common pathway — an endothelium too weak or damaged to pump water back out of the stroma." },
+      { theme: "Corneal dystrophies", items: ["Map-dot-fingerprint dystrophy", "Lattice dystrophy", "Granular dystrophy", "Macular corneal dystrophy"],
+        pearl: "Inherited and usually bilateral: map-dot-fingerprint affects the epithelium and basement membrane, while lattice, granular, and macular dystrophies are stromal." }
+    ]
+  },
+  {
+    id: "systemic-ocular-dx", title: "Systemic Disease, Ocular Signs", mode: "categorized",
+    groups: [
+      { disease: "Thyroid Eye Disease",
+        items: [
+          { slot: "RF", text: "Graves disease" },
+          { slot: "DX", text: "Orbital CT or MRI" },
+          { slot: "SX", text: "Proptosis with lid retraction" },
+          { slot: "TX", text: "Teprotumumab" },
+        ],
+        pearl: "Teprotumumab, an IGF-1 receptor inhibitor, was the first drug approved specifically for active thyroid eye disease itself." },
+      { disease: "Sarcoidosis",
+        items: [
+          { slot: "RF", text: "African ancestry" },
+          { slot: "DX", text: "Chest CT and serum ACE level" },
+          { slot: "SX", text: "Mutton-fat keratic precipitates" },
+          { slot: "TX", text: "Systemic corticosteroids" },
+        ],
+        pearl: "Mutton-fat keratic precipitates mark granulomatous uveitis — a category shared with tuberculosis and syphilis, always on the differential." },
+      { disease: "Systemic Lupus Erythematosus",
+        items: [
+          { slot: "RF", text: "Female sex of reproductive age" },
+          { slot: "DX", text: "Antinuclear antibody (ANA) testing" },
+          { slot: "SX", text: "Retinal vasculitis with cotton-wool spots" },
+          { slot: "TX", text: "Hydroxychloroquine" },
+        ],
+        pearl: "Hydroxychloroquine treats the lupus but requires its own annual retinal screening — the drug carries a small risk of toxic retinopathy." },
+      { disease: "Rheumatoid Arthritis",
+        items: [
+          { slot: "RF", text: "Long-standing seropositive disease" },
+          { slot: "DX", text: "Rheumatoid factor and anti-CCP antibody" },
+          { slot: "SX", text: "Peripheral ulcerative keratitis" },
+          { slot: "TX", text: "TNF-alpha inhibitor therapy" },
+        ],
+        pearl: "Peripheral ulcerative keratitis in a rheumatoid patient can signal systemic vasculitis — a marker of disease severity, not just an eye problem." }
+    ]
+  },
+  {
+    id: "retinal-findings", title: "Retinal Findings", mode: "undifferentiated",
+    groups: [
+      { theme: "Causes of a cherry-red spot", items: ["Central retinal artery occlusion", "Tay-Sachs disease", "Niemann-Pick disease", "Commotio retinae"],
+        pearl: "A cherry-red spot appears wherever the perifoveal retina turns opaque but the thin fovea does not — from acute ischemia, lysosomal storage disease, or blunt trauma." },
+      { theme: "Causes of vitreous hemorrhage", items: ["Retinal tear", "Posterior vitreous detachment", "Blunt ocular trauma", "Valsalva retinopathy"],
+        pearl: "A sudden shower of floaters after heavy lifting or straining suggests a superficial pre-retinal bleed, but a dilated exam is still needed to rule out a break." },
+      { theme: "Causes of cystoid macular edema", items: ["Diabetic macular edema", "Irvine-Gass syndrome", "Retinal vein occlusion", "Uveitis"],
+        pearl: "Whatever the trigger, the final pathway is the same — breakdown of the blood-retinal barrier lets fluid pool in a classic petaloid pattern on OCT." },
+      { theme: "Causes of retinal neovascularization", items: ["Proliferative diabetic retinopathy", "Ischemic CRVO", "Sickle cell retinopathy", "Retinopathy of prematurity"],
+        pearl: "Different diseases, same final signal — retinal ischemia drives VEGF release, and VEGF drives new, fragile vessels prone to bleeding." }
+    ]
+  },
+  {
+    id: "it-s-not-naion", title: "It's Not NAION", mode: "categorized",
+    groups: [
+      { disease: "Arteritic Anterior Ischemic Optic Neuropathy",
+        items: [
+          { slot: "RF", text: "Age ≥ 50" },
+          { slot: "DX", text: "Fluorescein angiography" },
+          { slot: "SX", text: "Pallid disc edema" },
+          { slot: "TX", text: "Tocilizumab" },
+        ],
+        pearl: "Emergent treatment with high-dose corticosteroids is essential if GCA is suspected; ≥50% bilateral vision loss in days to weeks following initial vision loss." },
+      { disease: "MOG Optic Neuritis",
+        items: [
+          { slot: "RF", text: "Age < 11" },
+          { slot: "DX", text: "Serum antibody titers" },
+          { slot: "SX", text: "Long segment optic nerve enhancement" },
+          { slot: "TX", text: "Corticosteroids" },
+        ],
+        pearl: "50% of children with ADEM are MOG-antibody positive; 30% of MOGAD presents in the pediatric population (mean onset 30 years)." },
+      { disease: "Amiodarone Optic Neuropathy",
+        items: [
+          { slot: "RF", text: "Atrial fibrillation" },
+          { slot: "DX", text: "Clinical diagnosis" },
+          { slot: "SX", text: "Corneal subepithelial deposits" },
+          { slot: "TX", text: "Discontinuing treatment" },
+        ],
+        pearl: "Amiodarone optic neuropathy mimics anterior ischemic optic neuropathy but has a much more indolent course (disc edema can persist for months), often with less severe vision loss." },
+      { disease: "Foster Kennedy Syndrome",
+        items: [
+          { slot: "RF", text: "Olfactory meningioma" },
+          { slot: "DX", text: "Magnetic resonance imaging" },
+          { slot: "SX", text: "Ipsilateral atrophy, contralateral edema" },
+          { slot: "TX", text: "Surgical debulking" },
+        ],
+        pearl: "Pseudo-Foster Kennedy syndrome most often occurs with sequential NAION - the eye with active disc edema has new vision loss; the eye with optic atrophy represents old NAION." }
+    ]
+  },
+  {
+    id: "iris-transillumination-defects", title: "Iris Transillumination Defects", mode: "undifferentiated",
+    groups: [
+      { theme: "Albinism", items: ["nystagmus", "foveal hypoplasia", "GPR143 gene mutation", "abnormal VEP"],
+        pearl: "The GPR143 (OA1) gene mutations cause X-linked recessive ocular albinism, which predominantly affects the eyes (skin and hair pigmentation remain normal). Female carriers have characteristic pigmented and hypopigmented streaks on funduscopy." },
+      { theme: "Pseudoexfoliation Syndrome", items: ["Sampaolesi line", "LOXL1 dysregulation", "ectopia lentis", "targetoid lens deposits"],
+        pearl: "Lysyl oxidase-like 1 (LOXL1) is the key enzyme for elastin biogenesis and collagen crosslinking. In pseudoexfoliation syndrome, LOXL1 is upregulated then downregulated, leading to elastotic matrix abnormalities." },
+      { theme: "Aniridia", items: ["PAX6 gene mutation", "genitourinary anomalies", "Wilms tumor", "limbal stem cell deficiency"],
+        pearl: "The PAX6 gene (located on chromosome 11p13) is a homeobox gene that is essential for the proper development of the eye (\"master control gene of the eye\") by governing the correct patterning and formation of the optic cup and development of the lens and corneal epithelium." },
+      { theme: "Herpes Simplex Anterior Uveitis", items: ["keratic precipitates", "glaucoma", "posterior synechiae", "corneal edema"],
+        pearl: "HSV is the most common infectious cause of anterior uveitis (10-15%). Approximately 45% of patients have recurrent flare-ups within 10 years, supporting the need for long-term antiviral prophylaxis." }
+    ]
+  }
+];
+
+/* ======================================================================
+   GAME ENGINE
+   ====================================================================== */
+
+const MAX_MISTAKES = 4;
+const EPOCH = new Date('2026-01-01T00:00:00Z').getTime();
+
+let state = null;
+
+function daysSinceEpoch(){ return Math.floor((Date.now() - EPOCH) / 86400000); }
+function puzzleOfTheDayIndex(){ return ((daysSinceEpoch() % PUZZLES.length) + PUZZLES.length) % PUZZLES.length; }
+
+/* ======================================================================
+   PROGRESS PERSISTENCE
+   ----------------------------------------------------------------------
+   Saved locally in this browser only (no account, no cross-device sync).
+   Wrapped in try/catch since localStorage can throw in some private-
+   browsing modes or restricted contexts -- if that happens, the game
+   still works, it just won't remember anything between visits.
+   ====================================================================== */
+
+const PROGRESS_KEY = 'convergences-progress-v1';
+
+function loadAllProgress(){
+  try{
+    const raw = localStorage.getItem(PROGRESS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch(e){
+    return {};
+  }
+}
+
+function savePuzzleResult(puzzleId, result){
+  try{
+    const all = loadAllProgress();
+    all[puzzleId] = result; // { won, mistakes, completedAt }
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify(all));
+  } catch(e){
+    /* no persistence available this session -- fail silently */
+  }
+}
+
+function getPuzzleResult(puzzleId){
+  return loadAllProgress()[puzzleId] || null;
+}
+
+function colorForGroupIndex(groupIndex){ return GROUP_ACCENT[groupIndex % GROUP_ACCENT.length]; }
+
+function groupLabel(puzzle, group){
+  return puzzle.mode === 'categorized' ? group.disease : group.theme;
+}
+
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i = a.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function loadPuzzle(index, forceReplay){
+  const puzzle = PUZZLES[index];
+  let tiles = [];
+  puzzle.groups.forEach((g, gi) => {
+    g.items.forEach(item => {
+      const isObj = typeof item === 'object';
+      const text = isObj ? item.text : item;
+      const slot = isObj ? item.slot : null;
+      tiles.push({ id: gi + '__' + text, text, slot, groupIndex: gi });
+    });
+  });
+
+  const saved = !forceReplay ? getPuzzleResult(puzzle.id) : null;
+
+  state = {
+    index,
+    puzzle,
+    tiles: shuffle(tiles),
+    selected: new Set(),
+    solved: saved ? puzzle.groups.map((g, gi) => gi) : [],
+    mistakes: saved ? saved.mistakes : 0,
+    guessHistory: [],
+    over: !!saved,
+    won: saved ? saved.won : false
+  };
+  render();
+}
+
+function toggleTile(id){
+  if(state.over) return;
+  const tile = state.tiles.find(t => t.id === id);
+  if(!tile) return;
+  if(state.selected.has(id)){
+    state.selected.delete(id);
+  } else {
+    if(state.selected.size >= 4) return;
+    state.selected.add(id);
+  }
+  render();
+}
+
+function deselectAll(){
+  if(state.over) return;
+  state.selected.clear();
+  render();
+}
+
+function shuffleRemaining(){
+  if(state.over) return;
+  const remaining = state.tiles.filter(t => !state.solved.includes(t.groupIndex));
+  const solvedTiles = state.tiles.filter(t => state.solved.includes(t.groupIndex));
+  state.tiles = solvedTiles.concat(shuffle(remaining));
+  render();
+}
+
+function showToast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  if(msg) setTimeout(() => { if(el.textContent === msg) el.textContent = ''; }, 1600);
+}
+
+function submitGuess(){
+  if(state.over || state.selected.size !== 4) return;
+  const ids = Array.from(state.selected);
+  const groupIndices = ids.map(id => state.tiles.find(t => t.id === id).groupIndex);
+  state.guessHistory.push(groupIndices.slice());
+
+  const allSame = groupIndices.every(gi => gi === groupIndices[0]);
+
+  if(allSame){
+    const gi = groupIndices[0];
+    state.solved.push(gi);
+    state.selected.clear();
+    if(state.solved.length === state.puzzle.groups.length){
+      state.over = true;
+      state.won = true;
+      savePuzzleResult(state.puzzle.id, { won: true, mistakes: state.mistakes, completedAt: Date.now() });
+      render();
+      setTimeout(() => openResult(), 500);
+    } else {
+      render();
+    }
+    return;
+  }
+
+  state.mistakes++;
+  const counts = {};
+  groupIndices.forEach(gi => counts[gi] = (counts[gi] || 0) + 1);
+  const closeGroup = Object.values(counts).some(c => c === 3);
+
+  shakeSelected();
+  showToast(closeGroup ? 'One away…' : '');
+
+  if(state.mistakes >= MAX_MISTAKES){
+    state.over = true;
+    state.won = false;
+    const remaining = state.puzzle.groups.map((g, i) => i).filter(i => !state.solved.includes(i));
+    state.solved = state.solved.concat(remaining);
+    savePuzzleResult(state.puzzle.id, { won: false, mistakes: state.mistakes, completedAt: Date.now() });
+    render();
+    setTimeout(() => openResult(), 650);
+    return;
+  }
+  render();
+}
+
+function shakeSelected(){
+  state.selected.forEach(id => {
+    const el = document.querySelector(`.tile[data-id="${cssEscape(id)}"]`);
+    if(el){
+      el.classList.add('shake');
+      setTimeout(() => el.classList.remove('shake'), 400);
+    }
+  });
+  setTimeout(() => { state.selected.clear(); render(); }, 420);
+}
+
+function cssEscape(s){ return s.replace(/["\\]/g, '\\$&'); }
+
+/* ---------- render ---------- */
+
+function tileLenClass(text){
+  const n = text.length;
+  if(n > 40) return 'len-2xs';
+  if(n > 30) return 'len-xs';
+  if(n > 22) return 'len-sm';
+  if(n > 14) return 'len-md';
+  return '';
+}
+
+function groupBarHtml(puzzle, groupIndex){
+  const g = puzzle.groups[groupIndex];
+  const color = colorForGroupIndex(groupIndex);
+  const label = groupLabel(puzzle, g);
+  let itemsHtml;
+  if(puzzle.mode === 'categorized'){
+    itemsHtml = `<div class="sb-items">${g.items.map(it =>
+      `<div class="sb-row"><span class="sb-tag tag-${SLOT_COLOR[it.slot]}">${it.slot}</span>${escapeHtml(it.text)}</div>`
+    ).join('')}</div>`;
+  } else {
+    itemsHtml = `<div class="sb-items plain">${g.items.map(escapeHtml).join(' · ')}</div>`;
+  }
+  return `<div class="solved-bar tag-${color}">
+    <div class="sb-label">${escapeHtml(label)}</div>
+    ${itemsHtml}
+    <div class="sb-pearl">${escapeHtml(g.pearl)}</div>
+  </div>`;
+}
+
+function render(){
+  const p = state.puzzle;
+
+  document.getElementById('puzzleNum').textContent = 'No. ' + String(state.index + 1).padStart(3, '0');
+  document.getElementById('puzzleTitle').textContent = p.title;
+  document.getElementById('modePill').textContent = p.mode === 'categorized' ? 'Group by disease' : 'Find the theme';
+
+  const legendEl = document.getElementById('legend');
+  if(p.mode === 'categorized'){
+    legendEl.classList.remove('hidden');
+    const pills = Object.keys(SLOT_COLOR).map(slot =>
+      `<span class="legend-pill tag-${SLOT_COLOR[slot]}">${slot}</span>`
+    ).join('');
+    legendEl.innerHTML = pills + '<span class="legend-caption">one of each = a diagnosis</span>';
+  } else {
+    legendEl.classList.add('hidden');
+    legendEl.innerHTML = '';
+  }
+
+  const solvedEl = document.getElementById('solvedGroups');
+  solvedEl.innerHTML = state.solved.map(gi => groupBarHtml(p, gi)).join('');
+
+  const gridEl = document.getElementById('grid');
+  const visible = state.tiles.filter(t => !state.solved.includes(t.groupIndex));
+  // Flexbox will happily compress this grid below what a real row needs
+  // (that's what min-height:0 is for, so it CAN shrink as groups get
+  // solved) -- but CSS Grid doesn't grow the container to rescue content
+  // that no longer fits, it just lets the row overflow silently. Since we
+  // know exactly how many tiles are showing, set the true floor directly
+  // rather than relying on the browser to infer it.
+  const rowCount = Math.ceil(visible.length / 4);
+  gridEl.style.minHeight = rowCount > 0 ? (rowCount * 40 + (rowCount - 1) * 6) + 'px' : '0';
+  gridEl.innerHTML = visible.map(t => {
+    const cls = ['tile'];
+    const lc = tileLenClass(t.text);
+    if(lc) cls.push(lc);
+    if(state.selected.has(t.id)) cls.push('selected');
+    const badge = t.slot ? `<span class="tile-badge tag-${SLOT_COLOR[t.slot]}">${t.slot}</span>` : '';
+    return `<button type="button" class="${cls.join(' ')}" data-id="${escapeHtml(t.id)}">${badge}<span class="tile-text">${escapeHtml(t.text)}</span></button>`;
+  }).join('');
+  gridEl.querySelectorAll('.tile').forEach(el => {
+    el.addEventListener('click', () => toggleTile(el.getAttribute('data-id')));
+  });
+
+  const dotsEl = document.getElementById('dots');
+  dotsEl.innerHTML = '';
+  for(let i = 0; i < MAX_MISTAKES; i++){
+    const d = document.createElement('span');
+    d.className = 'dot-pip' + (i < state.mistakes ? ' used' : '');
+    dotsEl.appendChild(d);
+  }
+
+  document.getElementById('btnSubmit').disabled = state.over || state.selected.size !== 4;
+  document.getElementById('btnShuffle').disabled = state.over;
+  document.getElementById('btnDeselect').disabled = state.over || state.selected.size === 0;
+  document.getElementById('btnSubmit').style.display = state.over ? 'none' : '';
+  document.getElementById('btnShuffle').style.display = state.over ? 'none' : '';
+  document.getElementById('btnDeselect').style.display = state.over ? 'none' : '';
+  document.getElementById('btnPlayAgain').style.display = state.over ? '' : 'none';
+  document.getElementById('controls').classList.toggle('stuck', state.over);
+}
+
+/* ======================================================================
+   OVERLAYS: help, archive, result
+   ====================================================================== */
+
+const overlay = document.getElementById('overlay');
+
+function closeOverlay(){
+  overlay.classList.add('hidden');
+  overlay.innerHTML = '';
+}
+
+function openHelp(){
+  overlay.innerHTML = `
+    <div class="sheet">
+      <h2>How to play</h2>
+      <div class="sheet-sub">16 terms. 4 groups of 4. ${MAX_MISTAKES} mistakes allowed.</div>
+      <div class="help-step"><b>1.</b> Tap up to 4 terms you think belong together, then hit Submit.</div>
+      <div class="help-step"><b>2.</b> A correct group of 4 slides to the top with a teaching note.</div>
+      <div class="help-step"><b>3.</b> <b>Group by disease</b> puzzles tag every clue as RF (Risk Factor), DX (Diagnostic Test), SX (Symptom/Exam Finding), or TX (Treatment). Each of the 4 hidden groups is one specific disease, contributing exactly one clue of each type — find the 4 tagged clues that all belong to the same disease.</div>
+      <div class="swatch-row" style="margin:6px 0 12px;">
+        <div class="swatch"><span class="dot" style="background:var(--blue)"></span>RF</div>
+        <div class="swatch"><span class="dot" style="background:var(--teal)"></span>DX</div>
+        <div class="swatch"><span class="dot" style="background:var(--amber)"></span>SX</div>
+        <div class="swatch"><span class="dot" style="background:var(--green)"></span>TX</div>
+      </div>
+      <div class="help-step"><b>4.</b> <b>Find the theme</b> puzzles hide the 4 themes until you solve them. Some terms genuinely fit more than one theme — there's still only one correct grouping.</div>
+      <hr class="help-rule">
+      <div class="swatch-row">
+        <div class="swatch"><span class="dot" style="background:var(--amber)"></span>Group 1</div>
+        <div class="swatch"><span class="dot" style="background:var(--green)"></span>Group 2</div>
+        <div class="swatch"><span class="dot" style="background:var(--blue)"></span>Group 3</div>
+        <div class="swatch"><span class="dot" style="background:var(--purple)"></span>Group 4</div>
+      </div>
+      <div class="sheet-sub" style="margin-top:-4px;">Colors mark which group a tile belongs to once solved — not difficulty.</div>
+      <button class="sheet-close" id="closeHelp">Got it</button>
+    </div>`;
+  overlay.classList.remove('hidden');
+  document.getElementById('closeHelp').addEventListener('click', closeOverlay);
+  overlay.addEventListener('click', e => { if(e.target === overlay) closeOverlay(); }, { once:true });
+}
+
+function openArchive(){
+  const todayIdx = puzzleOfTheDayIndex();
+  const solvedCount = PUZZLES.filter(p => { const r = getPuzzleResult(p.id); return r && r.won; }).length;
+  overlay.innerHTML = `
+    <div class="sheet">
+      <h2>Puzzle archive</h2>
+      <div class="sheet-sub">${PUZZLES.length} puzzles · ${solvedCount} solved · pick any to play</div>
+      <div id="archiveList"></div>
+      <button class="sheet-close" id="closeArchive">Close</button>
+    </div>`;
+  const list = overlay.querySelector('#archiveList');
+  PUZZLES.forEach((p, i) => {
+    const result = getPuzzleResult(p.id);
+    const btn = document.createElement('button');
+    btn.className = 'archive-item' + (i === todayIdx ? ' today' : '') + (result && result.won ? ' solved' : '');
+    const status = result
+      ? (result.won ? `✓ solved · ${result.mistakes} mistake${result.mistakes===1?'':'s'}` : 'attempted · not solved')
+      : '';
+    btn.innerHTML = `
+      <span>
+        <span class="ai-title">${escapeHtml(p.title)}</span>
+        <div class="ai-sub">No. ${String(i+1).padStart(3,'0')}${i === todayIdx ? ' · today' : ''}${status ? ' · ' + status : ''}</div>
+      </span>
+      <span class="ai-badge">${p.mode === 'categorized' ? 'Disease' : 'Theme'}</span>`;
+    btn.addEventListener('click', () => { closeOverlay(); loadPuzzle(i); });
+    list.appendChild(btn);
+  });
+  overlay.classList.remove('hidden');
+  document.getElementById('closeArchive').addEventListener('click', closeOverlay);
+  overlay.addEventListener('click', e => { if(e.target === overlay) closeOverlay(); }, { once:true });
+}
+
+function buildShareText(){
+  const p = state.puzzle;
+  const rows = state.guessHistory.map(gis => gis.map(gi => SHARE_EMOJI[colorForGroupIndex(gi)]).join('')).join('\n');
+  const status = state.won ? `Solved · ${state.mistakes}/${MAX_MISTAKES} mistakes` : 'Not solved';
+  return `Convergences — No. ${String(state.index+1).padStart(3,'0')}: ${p.title}\n${status}\n${rows}`;
+}
+
+function openResult(){
+  const p = state.puzzle;
+  overlay.innerHTML = `
+    <div class="sheet">
+      <div class="result-headline">${state.won ? 'Solved.' : 'Nice try.'}</div>
+      <div class="result-sub">${state.won ? `${p.title} — ${state.mistakes} mistake${state.mistakes===1?'':'s'}.` : `Here's the breakdown for ${p.title}.`}</div>
+      <div class="result-groups">${p.groups.map((g, gi) => groupBarHtml(p, gi)).join('')}</div>
+      <div class="share-grid">${state.guessHistory.map(gis => gis.map(gi => SHARE_EMOJI[colorForGroupIndex(gi)]).join('')).join('<br>')}</div>
+      <div class="result-actions">
+        <button class="btn" id="btnShare">Copy result</button>
+        <button class="btn btn-primary" id="btnNext">Next puzzle</button>
+      </div>
+      <button class="sheet-close" id="closeResult">Back to board</button>
+    </div>`;
+  overlay.classList.remove('hidden');
+
+  document.getElementById('btnShare').addEventListener('click', () => {
+    const text = buildShareText();
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(() => showToast('Copied!'));
+    }
+    const btn = document.getElementById('btnShare');
+    btn.textContent = 'Copied';
+    setTimeout(() => { btn.textContent = 'Copy result'; }, 1400);
+  });
+  document.getElementById('btnNext').addEventListener('click', () => {
+    closeOverlay();
+    loadPuzzle((state.index + 1) % PUZZLES.length);
+  });
+  document.getElementById('closeResult').addEventListener('click', closeOverlay);
+}
+
+/* ======================================================================
+   WIRE UP + INIT
+   ====================================================================== */
+
+/* Real mobile browsers (Safari in particular) resize their address/tab
+   bar dynamically, and 100vh/100dvh support is inconsistent across
+   versions. This measures the actual visible viewport with the
+   VisualViewport API (falling back to window.innerHeight) and writes it
+   as a CSS custom property, which the CSS above prefers over vh/dvh
+   whenever it's available. Re-measured on resize, orientation change,
+   and visualViewport changes so it tracks the address bar showing/hiding. */
+function setViewportHeightVar(){
+  const h = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+  document.documentElement.style.setProperty('--vh100', (h / 100) + 'px');
+}
+setViewportHeightVar();
+window.addEventListener('resize', setViewportHeightVar);
+window.addEventListener('orientationchange', () => setTimeout(setViewportHeightVar, 120));
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize', setViewportHeightVar);
+  window.visualViewport.addEventListener('scroll', setViewportHeightVar);
+}
+
+document.getElementById('btnShuffle').addEventListener('click', shuffleRemaining);
+document.getElementById('btnPlayAgain').addEventListener('click', () => loadPuzzle(state.index, true));
+document.getElementById('btnDeselect').addEventListener('click', deselectAll);
+document.getElementById('btnSubmit').addEventListener('click', submitGuess);
+document.getElementById('btnHelp').addEventListener('click', openHelp);
+document.getElementById('btnArchive').addEventListener('click', openArchive);
+
+loadPuzzle(puzzleOfTheDayIndex());
+</script>
+</body>
+</html>
